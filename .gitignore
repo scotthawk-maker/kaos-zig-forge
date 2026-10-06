@@ -1,0 +1,15 @@
+.zig-cache/
+zig-out/
+*.exe
+*.obj
+*.pdb
+*.o
+*.a
+*.lib
+*.dll
+*.so
+*.dylib
+.DS_Store
+Thumbs.db
+kzf-deploy.json
+deploy.json
