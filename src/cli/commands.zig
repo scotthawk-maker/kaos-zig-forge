@@ -13,7 +13,7 @@ const wal_storage = @import("../templates/wal_storage.zig");
 pub fn printHelp() void {
     std.debug.print(
         \\======================================================================
-        \\🦅 Kaos Zig Forge (KZF) v1.1.0 — Systems & Performance Toolkit
+        \\Kaos Zig Forge (KZF) v1.1.0 — Systems & Performance Toolkit
         \\======================================================================
         \\Commands:
         \\  kzf new <template> <name>  Scaffold a new production project
@@ -40,7 +40,7 @@ pub fn printHelp() void {
 }
 
 pub fn printVersion() void {
-    std.debug.print("🦅 Kaos Zig Forge (KZF) v1.1.0 (Zig 0.16.0)\n", .{});
+    std.debug.print("Kaos Zig Forge (KZF) v1.1.0 (Zig 0.16.0)\n", .{});
 }
 
 pub fn printList() void {

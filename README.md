@@ -2,7 +2,7 @@
   <img src="assets/zig-mark-red.svg" alt="Red Zig Logo" width="96" height="88" />
 </p>
 
-<h1 align="center">🦅 Kaos Zig Forge (KZF)</h1>
+<h1 align="center">Kaos Zig Forge (KZF)</h1>
 
 <p align="center">
   <strong>A little Zig 0.16 toolkit I threw together on a weekend: project scaffolder, deprecation linter, and CPU inspector.</strong>
