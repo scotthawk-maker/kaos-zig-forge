@@ -1,0 +1,39 @@
+name: Release
+
+# Push a tag like v1.2.0 and this cross-compiles the binaries and publishes a GitHub release.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Zig 0.16.0
+        uses: mlugg/setup-zig@v2
+        with:
+          version: 0.16.0
+
+      - name: Cross-compile binaries
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          build() {  # <zig-target> <output-name> <artifact-in-zig-out-bin>
+            zig build -Dtarget="$1" -Doptimize=ReleaseSafe
+            cp "zig-out/bin/$3" "dist/$2"
+          }
+          build x86_64-linux-musl  kzf-x86_64-linux        kzf
+          build x86_64-windows     kzf-x86_64-windows.exe  kzf.exe
+          build x86_64-macos       kzf-x86_64-macos        kzf
+          build aarch64-macos      kzf-aarch64-macos       kzf
+          cd dist && sha256sum kzf-* > SHA256SUMS.txt
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --title "KZF $GITHUB_REF_NAME" --generate-notes
