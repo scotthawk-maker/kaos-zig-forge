@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+jobs:
+  build-test:
+    name: build & test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Zig 0.16.0
+        uses: mlugg/setup-zig@v2
+        with:
+          version: 0.16.0
+
+      - name: Build
+        run: zig build
+
+      - name: Test
+        run: zig build test
+
+      # Dogfood: the linter must pass clean on its own source, proving the
+      # "first-try" claim and that doctor handles a real directory scan.
+      - name: Doctor self-lint (unix)
+        if: runner.os != 'Windows'
+        run: ./zig-out/bin/kzf doctor src
+
+      - name: Doctor self-lint (windows)
+        if: runner.os == 'Windows'
+        run: .\zig-out\bin\kzf.exe doctor src

@@ -71,7 +71,16 @@ pub fn loadRules(alloc: std.mem.Allocator, target: []const u8) !LoadedRules {
 }
 
 pub fn checkFile(io: Io, alloc: std.mem.Allocator, path: []const u8, rules: []const CheckRule, issues: *std.ArrayList(Issue)) !void {
-    const file = Io.Dir.openFileAbsolute(io, path, .{}) catch return;
+    // openFileAbsolute asserts an absolute path; resolve relative args (e.g. `kzf doctor src/main.zig`)
+    // against cwd first, or it panics. Reporting still uses the original `path` for readability.
+    var abs_buf: [4096]u8 = undefined;
+    var abs_path = path;
+    if (!std.fs.path.isAbsolute(path)) {
+        const cwd = std.process.currentPathAlloc(io, alloc) catch return;
+        defer alloc.free(cwd);
+        abs_path = std.fmt.bufPrint(&abs_buf, "{s}/{s}", .{ cwd, path }) catch return;
+    }
+    const file = Io.Dir.openFileAbsolute(io, abs_path, .{}) catch return;
     defer file.close(io);
 
     var buf: [65536]u8 = undefined;
