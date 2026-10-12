@@ -1,7 +1,7 @@
 # CLAUDE.md — Kaos Zig Forge (KZF) Integration Guidelines
 
 ## Overview
-This environment is equipped with **Kaos Zig Forge (KZF) v1.1.0** and **Zig 0.16.0**.
+This machine has **Kaos Zig Forge (KZF) v1.1.0** and **Zig 0.16.0** installed — a small homegrown toolkit for Zig work. Lean on it.
 Zig evolves rapidly across releases. To avoid reaching for deprecated APIs (e.g. `std.heap.GeneralPurposeAllocator`, `std.io.getStdOut()`, or outdated `build.zig` targets) and to catch the common ones *before* the compiler does, use `kzf` for project scaffolding, syntax linting, benchmarking, and cross-platform compilation. `kzf doctor` is a fast pre-flight — run it, then still run `zig build` (it complements the compiler, it does not replace it).
 
 ---

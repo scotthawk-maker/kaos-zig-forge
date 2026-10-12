@@ -5,9 +5,9 @@
 <h1 align="center">🦅 Kaos Zig Forge (KZF)</h1>
 
 <p align="center">
-  <strong>The Zero-Friction Project Scaffolder, Linter & Hardware Inspector for Zig 0.16.0</strong>
+  <strong>A little Zig 0.16 toolkit I threw together on a weekend: project scaffolder, deprecation linter, and CPU inspector.</strong>
   <br />
-  <em>Streamlining compilation on Windows & Linux with verified templates and a deprecation pre-flight.</em>
+  <em>Mostly so my AI coding agent would quit inventing standard-library APIs that got removed three versions ago.</em>
 </p>
 
 <p align="center">
@@ -24,40 +24,39 @@
 
 ## 📖 The Story
 
-It started late one night while watching my AI coding agent try to build a Zig project. 
+This started late one night watching my AI coding agent flail at a Zig project.
 
-Zig evolves rapidly — between `0.14`, `0.15`, and bleeding-edge `0.16`, massive parts of the standard library were refactored: `getStdOut()` was removed, `GeneralPurposeAllocator` was overhauled, and `root_source_file` in `addExecutable` broke in favor of `b.createModule`. Because most tutorials and LLM training data are stuck on older Zig versions, my agent kept hallucinating deprecated APIs, hitting compiler walls, and wandering down rabbit holes trying random workarounds.
+Zig moves fast. Between `0.14`, `0.15`, and `0.16`, big chunks of the std library got reshuffled — `getStdOut()` disappeared, `GeneralPurposeAllocator` changed, and passing `root_source_file` straight to `addExecutable` stopped working (it wants `b.createModule` now). Trouble is, most tutorials and most of what the LLMs were trained on are stuck on older Zig, so my agent kept confidently writing dead APIs, slamming into compiler errors, and then trying random nonsense to dig out.
 
-I got tired of watching my agent wander and wrestling with compiler errors every time we wanted to build something new.
+I got tired of babysitting it, so over a weekend I built the thing I wished existed:
 
-I wanted a rock-solid foundation where both developers and autonomous AI agents could hit the ground running with zero friction:
-* **Templates that compile on the first try** on Windows and Linux, pre-wired with modern `b.createModule` build graphs and leak-checked allocators.
-* **An automated syntax doctor (`kzf doctor`)** to catch agents and developers reaching for dead APIs *before* the compiler even complains.
-* **Direct CPU silicon auto-tuning (`kzf hardware`)** via inline assembly so you never have to guess `-Dcpu=...` optimization flags.
-* **A native MCP server (`kzf mcp`)** so AI agents (Claude Desktop, Cursor, Antigravity) can scaffold verified, runnable Zig 0.16 projects directly through tool calls instead of guessing.
+* **Templates that actually compile the first time** on Windows and Linux, already wired up with `b.createModule` and leak-checked allocators — so there's a known-good starting point instead of a blank file.
+* **A deprecation linter (`kzf doctor`)** that catches the usual dead-API mistakes *before* the compiler does, and tells you what to use instead.
+* **A CPU probe (`kzf hardware`)** so I stop guessing `-Dcpu=...` flags.
+* **An MCP server (`kzf mcp`)** so the agent can scaffold and lint through tool calls instead of guessing.
 
-That is how **Kaos Zig Forge (KZF)** was born.
+That's it. It's a weekend tool that grew legs. It won't replace the compiler or `zls` — it just gets you (or your agent) unstuck faster. PRs and bug reports welcome; no promises on turnaround.
 
 ---
 
 ## ⚡ Quickstart & Global CLI
 
-`kzf` compiles into a single, self-contained native binary (`kzf.exe` on Windows, `kzf` on Linux) with zero runtime dependencies.
+`kzf` builds to one self-contained binary (`kzf.exe` on Windows, `kzf` on Linux), no runtime deps. Drop it on your `PATH` and go:
 
 ```bash
-# Verify installation & version
+# What am I running?
 kzf version
 
-# Inspect CPU silicon and get optimal compiler flags (-Dcpu=...)
+# What's this CPU got? (and the -Dcpu=... flag to match)
 kzf hardware
 
-# Scan a Zig file or directory for deprecated APIs before compiling (exits non-zero on findings)
+# Check a file or dir for dead APIs before building (exits non-zero if it finds any)
 kzf doctor src/
 
-# List all available production templates
+# What templates are there?
 kzf list
 
-# View high-performance compilation targets
+# Show the compile targets
 kzf targets
 ```
 
@@ -65,44 +64,46 @@ kzf targets
 
 ## 🏎️ Production Templates
 
-Scaffold robust, verified Zig 0.16 codebases in seconds:
+Starter projects that compile on the first try — grab one instead of staring at an empty `main.zig`:
 
 ```bash
-# 1. High-Performance System CLI (Modern std.process.Init, leak-checked allocator)
+# 1. Plain system CLI (modern std.process.Init, leak-checked allocator)
 kzf new cli my_cli_app
 
-# 2. AVX-512 SIMD Neural Tensor Vector Engine (@Vector(16, f32) Dot Products)
+# 2. AVX-512 SIMD tensor math (@Vector(16, f32) dot products)
 kzf new simd my_tensor_engine
 
-# 3. Zero-Copy Lock-Free SPSC Shared Memory Ring Buffer (Cacheline-padded, Windows SHM / POSIX)
+# 3. Lock-free SPSC shared-memory ring buffer (cacheline-padded, Windows SHM / POSIX)
 kzf new shm-ring my_ipc_queue
 
-# 4. Ultra-Low-Latency Event Queue & SPSC Engine (Fixed-point 64-bit event ingestion)
+# 4. Low-latency event queue (fixed-point 64-bit ticks)
 kzf new hft my_event_engine
 
-# 5. Silicon-Aware NUMA & Worker Pool (CPU core affinity pinning, work-stealing)
+# 5. NUMA-aware worker pool (core pinning, work-stealing)
 kzf new numa-worker my_worker_pool
 
-# 6. Zero-Allocation WebMCP JSON-RPC 2.0 AI Agent Server (Claude Desktop / Cursor ready)
+# 6. Tiny WebMCP JSON-RPC 2.0 agent server (Claude Desktop / Cursor ready)
 kzf new webmcp-server my_mcp_service
 
-# 7. Crash-Consistent Block Storage & WAL Journal (Sector-aligned, hardware CRC32 checksums)
+# 7. Crash-consistent block storage + WAL journal (sector-aligned, CRC32)
 kzf new wal-storage my_wal_journal
 ```
+
+They're starting points, not a framework — rip out whatever you don't need.
 
 ---
 
 ## 🩺 Syntax Guard & Linter (`kzf doctor`)
 
-AI models and older tutorials constantly reach for Zig APIs that a recent release removed — and the mistake only surfaces when the compiler finally chokes. `kzf doctor` is a fast **pre-flight pass** that catches the common ones up front and hands you the exact modern replacement. It's a focused pattern check, not a replacement for the compiler or `zls` — run it *before* `zig build`, not instead of it.
+LLMs and old tutorials keep reaching for Zig APIs that a newer release deleted, and you don't find out until the compiler yells. `kzf doctor` is a quick pass that catches the common ones up front and tells you the modern replacement. It's a dumb-but-fast pattern check — not a substitute for the compiler or `zls`. Run it *before* `zig build`, not instead of it.
 
 ```bash
-kzf doctor src/                       # scan a file or directory (default: Zig 0.16 rules)
+kzf doctor src/                       # scan a file or dir (default: Zig 0.16 rules)
 kzf doctor src/ --zig-version 0.17    # target a different release (see below)
-kzf doctor src/ && zig build          # gate a build — doctor exits non-zero on findings
+kzf doctor src/ && zig build          # chain it — doctor exits non-zero if it finds something
 ```
 
-What the `0.16` rule set catches (rules live in [`src/rules.json`](src/rules.json)):
+What the `0.16` rule set looks for (rules live in [`src/rules.json`](src/rules.json)):
 * `std.heap.GeneralPurposeAllocator` → `init.gpa` / `std.heap.DebugAllocator`
 * removed `std.time.nanoTimestamp` / `milliTimestamp` → cycle timers (`rdtsc`, Windows QPC)
 * `b.addExecutable` / `b.addTest` missing `.root_module = b.createModule(...)`
@@ -110,24 +111,24 @@ What the `0.16` rule set catches (rules live in [`src/rules.json`](src/rules.jso
 * `std.Target.CrossTarget` → `std.Target.Query`
 * deprecated `std.mem.tokenize` → `tokenizeAny` / `tokenizeScalar`
 
-Findings print with a fix and the command exits `1`, so it drops straight into CI or a pre-commit hook. The rule set is **data, selectable per Zig version** — see [Compiler Version Flexibility](#-compiler-version-flexibility-migrating-to-zig-0170).
+It prints each hit with a fix and exits `1`, so it slots into CI or a pre-commit hook without any glue. The rules are plain data, pickable per Zig version — see [Compiler Version Flexibility](#-compiler-version-flexibility-migrating-to-zig-0170).
 
 ---
 
 ## 🛡️ Silicon Inspection (`kzf hardware`)
 
-Directly probes your CPU registers via inline x86_64 assembly:
-* **Modern x86_64 Silicon**: First-class detection for both Intel Core / Xeon and AMD Zen 3/4/5 microarchitectures.
-* **Vector Extensions**: Probes AVX-512 foundation (`AVX-512F`, `VL`, `BW`, `DQ`), AVX2, and FMA3.
-* **Neural & Crypto Acceleration**: Probes AVX-512 VNNI (`VPDPBUSD`), BF16, VBMI, Vector AES (VAES), and hardware SHA.
-* **Cache Topology**: Parses core cache line size and L1d/L2/L3 topology (Intel Deterministic Leaf 4 & AMD Leafs 0x80000005/6).
-* **Compiler Flag Recommendations**: Recommends the exact `-Dcpu=...` flag (`native`, `x86_64_v3` for Intel Core, `x86_64_v4` for Intel Xeon, `znver4` / `znver5` for AMD Zen) to squeeze peak performance from your hardware.
+Reads your CPU straight from `CPUID` via inline x86_64 asm, so you don't have to look anything up:
+* **CPU detection**: Intel Core / Xeon and AMD Zen 3/4/5.
+* **Vector extensions**: AVX-512 (`AVX-512F`, `VL`, `BW`, `DQ`), AVX2, FMA3.
+* **Fancy stuff**: AVX-512 VNNI (`VPDPBUSD`), BF16, VBMI, Vector AES (VAES), hardware SHA.
+* **Cache layout**: cache-line size and L1d/L2/L3 topology (Intel leaf 4 & AMD leafs `0x80000005/6`).
+* **The flag you actually wanted**: the matching `-Dcpu=...` (`native`, `x86_64_v3` for Intel Core, `x86_64_v4` for Xeon, `znver4` / `znver5` for Zen).
 
 ---
 
 ## 🔌 Model Context Protocol (MCP) Server
 
-KZF includes a built-in JSON-RPC 2.0 stdio MCP server for direct AI agent integration with Claude Desktop, Claude Code, Cursor, and Antigravity:
+There's a built-in stdio MCP server (JSON-RPC 2.0) so an agent — Claude Desktop, Claude Code, Cursor, Antigravity — can call this stuff directly instead of guessing:
 
 ```bash
 kzf mcp
@@ -146,50 +147,47 @@ Add to `%APPDATA%\Claude\claude_desktop_config.json`:
 }
 ```
 
-### Exposed AI Agent Tools
-* `kzf_inspect_hardware`: Probes CPU silicon extensions and returns compiler optimization flags.
-* `kzf_list_templates`: Returns production starter templates and descriptions.
-* `kzf_get_targets`: Returns optimized compilation targets and flags.
-* `kzf_doctor`: Scans files/projects for deprecated syntax and suggests fixes directly to AI agents. Optional `zig_version` selects the rule set.
-* `kzf_scaffold_project`: Autonomously scaffolds new production Zig 0.16 projects.
+### The tools it exposes
+* `kzf_inspect_hardware`: CPU extensions + the compiler flags to match.
+* `kzf_list_templates`: the starter templates and what they are.
+* `kzf_get_targets`: compile targets and flags.
+* `kzf_doctor`: scans for dead APIs and hands back fixes. Optional `zig_version` picks the rule set.
+* `kzf_scaffold_project`: drops a new project into the current directory.
 
 ---
 
 ## 🔄 Compiler Version Flexibility (Migrating to Zig 0.17.0+)
 
-> [!IMPORTANT]
-> **Built for Zig 0.16.0**: This release of Kaos Zig Forge (KZF) is rigorously verified, benchmarked, and battle-tested specifically on **Zig 0.16.0**. 
+> [!NOTE]
+> I built and run this on **Zig 0.16.0** — that's what it's tested against. Newer Zig probably works, but you're a little ahead of me if you're on master.
 
-### Selecting a target version (`--zig-version`)
+### Picking a target version (`--zig-version`)
 
-The `doctor` rule set is **data, not hardcoded** — it lives in [`src/rules.json`](src/rules.json), and each rule is tagged with the Zig version it applies `since`. Pick the target version at runtime:
+The `doctor` rules aren't hardcoded — they live in [`src/rules.json`](src/rules.json), each tagged with the Zig version it applies `since`. Pick one at runtime:
 
 ```bash
 kzf doctor src/              # default: Zig 0.16 rules
-kzf doctor src/ --zig-version 0.17   # 0.16 rules still apply + any tagged "0.17"
-kzf doctor src/ --zig-version 0.15   # only rules introduced by 0.15 or earlier
+kzf doctor src/ --zig-version 0.17   # 0.16 rules still apply + anything tagged "0.17"
+kzf doctor src/ --zig-version 0.15   # only rules from 0.15 or earlier
 ```
 
-A rule fires when the target version is **>= its `since`**, so an API removed in 0.16 keeps flagging for 0.17 and beyond — you never lose coverage by moving forward. The MCP `kzf_doctor` tool takes the same selector as an optional `zig_version` argument.
+A rule fires when your target is **>= its `since`**, so something removed in 0.16 keeps getting flagged on 0.17 and up — moving forward never drops coverage. The MCP `kzf_doctor` tool takes the same thing as an optional `zig_version` argument.
 
-**Adding support for a new Zig release is a data change, not a code change:** append rules to `src/rules.json` with the new version as their `since` (existing rules keep applying) and rebuild. No linter logic to touch — ideal for community PRs.
+**Teaching it about a new Zig release is just editing data:** add rules to `src/rules.json` with the new version as their `since` (the old ones keep applying) and rebuild. No linter code to touch — easy PR if you hit a new deprecation before I do.
 
-If you additionally want to compile KZF or scaffolded projects on a newer compiler (such as bleeding-edge master), here is the checklist to adapt the build:
+If you also want to build KZF itself on a newer compiler (like bleeding-edge master), here's the rough checklist:
 
-### 1. Update Package Manifest (`build.zig.zon`)
-Adjust the minimum compiler requirement to allow newer toolchains:
+### 1. Bump the manifest (`build.zig.zon`)
 ```zig
 .minimum_zig_version = "0.17.0",
 ```
 
-### 2. Run the Syntax Guard (`kzf doctor`)
-Use `kzf doctor` to scan for any standard library APIs that Zig may have shifted between 0.16.0 and 0.17.0:
+### 2. Run the linter on yourself
 ```bash
 kzf doctor src/
 ```
 
-### 3. Verify Build Module Wiring (`build.zig`)
-Ensure your `build.zig` adheres to the current target module convention:
+### 3. Sanity-check your `build.zig` wiring
 ```zig
 const target = b.standardTargetOptions(.{});
 const optimize = b.standardOptimizeOption(.{});
@@ -204,8 +202,7 @@ const exe = b.addExecutable(.{
 });
 ```
 
-### 4. Execute Full Verification Test Suite
-Run the test harness to confirm all templates compile cleanly under your compiler version:
+### 4. Build and test
 ```bash
 zig build test
 ```
@@ -214,4 +211,4 @@ zig build test
 
 ## 📄 License
 
-MIT License — see [LICENSE](LICENSE) for details.
+MIT — do whatever, see [LICENSE](LICENSE). It's a weekend project; use at your own risk.
