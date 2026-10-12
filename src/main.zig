@@ -14,7 +14,10 @@ pub fn main(init: std.process.Init) !void {
         .list => kzf.commands.printList(),
         .hardware => kzf.commands.inspectHardware(),
         .targets => kzf.commands.printTargets(),
-        .doctor => |d| try kzf.doctor.runDoctor(init.io, arena, d.path),
+        .doctor => |d| {
+            const n = try kzf.doctor.runDoctor(init.io, arena, d.path);
+            if (n > 0) std.process.exit(1); // non-zero so `kzf doctor && zig build` gates correctly
+        },
         .bench => try kzf.bench.runBench(init.io, arena),
         .mcp => try kzf.mcp.runMcp(init.io, arena),
         .new => |n| {

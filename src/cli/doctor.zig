@@ -67,7 +67,10 @@ pub fn checkFile(io: Io, alloc: std.mem.Allocator, path: []const u8, issues: *st
     var has_root_module = false;
 
     while (try reader.takeDelimiter('\n')) |raw_line| : (line_num += 1) {
-        const line = std.mem.trim(u8, raw_line, "\r");
+        const full = std.mem.trim(u8, raw_line, "\r");
+        // ponytail: cut line comments so a pattern mentioned in a `//` note doesn't false-positive.
+        // naive (ignores `//` inside a string literal); switch to std.zig.Ast if that ever bites.
+        const line = if (std.mem.indexOf(u8, full, "//")) |i| full[0..i] else full;
 
         if (std.mem.indexOf(u8, line, "addExecutable(") != null or std.mem.indexOf(u8, line, "addTest(") != null) {
             inside_add_target = true;
@@ -122,7 +125,8 @@ pub fn scanPath(io: Io, alloc: std.mem.Allocator, scan_path: []const u8, issues:
     }
 }
 
-pub fn runDoctor(io: Io, alloc: std.mem.Allocator, target_path: ?[]const u8) !void {
+/// Returns the number of issues found so the caller can set a non-zero exit code (CI/agent gate).
+pub fn runDoctor(io: Io, alloc: std.mem.Allocator, target_path: ?[]const u8) !usize {
     std.debug.print(
         \\======================================================================
         \\🩺 Kaos Zig Forge (KZF) — Zig 0.16.0 Syntax Guard & Linter
@@ -161,4 +165,6 @@ pub fn runDoctor(io: Io, alloc: std.mem.Allocator, target_path: ?[]const u8) !vo
         }
         std.debug.print("----------------------------------------------------------------------\n", .{});
     }
+
+    return issues.items.len;
 }
