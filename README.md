@@ -7,13 +7,14 @@
 <p align="center">
   <strong>The Zero-Friction Project Scaffolder, Linter & Hardware Inspector for Zig 0.16.0</strong>
   <br />
-  <em>Streamlining compilation on Windows & Linux with built-in checks and anti-hallucination guards.</em>
+  <em>Streamlining compilation on Windows & Linux with verified templates and a deprecation pre-flight.</em>
 </p>
 
 <p align="center">
+  <a href="https://github.com/scotthawk-maker/kaos-zig-forge/actions/workflows/ci.yml"><img src="https://github.com/scotthawk-maker/kaos-zig-forge/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
   <a href="#-the-story"><img src="https://img.shields.io/badge/Zig-0.16.0-red?logoColor=white" alt="Zig 0.16.0" /></a>
   <a href="#-production-templates"><img src="https://img.shields.io/badge/Templates-7%20Production-blue" alt="Templates" /></a>
-  <a href="#-syntax-guard--linter-kzf-doctor"><img src="https://img.shields.io/badge/Linter-Anti--Hallucination-brightgreen" alt="Linter" /></a>
+  <a href="#-syntax-guard--linter-kzf-doctor"><img src="https://img.shields.io/badge/Linter-Deprecation%20Guard-brightgreen" alt="Linter" /></a>
   <a href="#-silicon-inspection-kzf-hardware"><img src="https://img.shields.io/badge/Silicon-AVX--512%20Auto--Tune-orange" alt="Silicon" /></a>
   <a href="#-model-context-protocol-mcp-server"><img src="https://img.shields.io/badge/AI%20Agent-MCP%20Ready-purple" alt="MCP Ready" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-black" alt="License" /></a>
@@ -31,7 +32,7 @@ I got tired of watching my agent wander and wrestling with compiler errors every
 
 I wanted a rock-solid foundation where both developers and autonomous AI agents could hit the ground running with zero friction:
 * **Templates that compile on the first try** on Windows and Linux, pre-wired with modern `b.createModule` build graphs and leak-checked allocators.
-* **An automated anti-hallucination syntax doctor (`kzf doctor`)** to stop agents and developers from using dead APIs *before* the compiler even complains.
+* **An automated syntax doctor (`kzf doctor`)** to catch agents and developers reaching for dead APIs *before* the compiler even complains.
 * **Direct CPU silicon auto-tuning (`kzf hardware`)** via inline assembly so you never have to guess `-Dcpu=...` optimization flags.
 * **A native MCP server (`kzf mcp`)** so AI agents (Claude Desktop, Cursor, Antigravity) can scaffold verified, runnable Zig 0.16 projects directly through tool calls instead of guessing.
 
@@ -50,8 +51,8 @@ kzf version
 # Inspect CPU silicon and get optimal compiler flags (-Dcpu=...)
 kzf hardware
 
-# Scan any Zig file or directory for deprecated APIs before compiling
-kzf doctor
+# Scan a Zig file or directory for deprecated APIs before compiling (exits non-zero on findings)
+kzf doctor src/
 
 # List all available production templates
 kzf list
@@ -93,18 +94,23 @@ kzf new wal-storage my_wal_journal
 
 ## 🩺 Syntax Guard & Linter (`kzf doctor`)
 
-AI models and outdated docs frequently hallucinate deprecated Zig APIs. `kzf doctor` acts as an automated syntax guard that scans your code and provides exact modern replacements:
+AI models and older tutorials constantly reach for Zig APIs that a recent release removed — and the mistake only surfaces when the compiler finally chokes. `kzf doctor` is a fast **pre-flight pass** that catches the common ones up front and hands you the exact modern replacement. It's a focused pattern check, not a replacement for the compiler or `zls` — run it *before* `zig build`, not instead of it.
 
 ```bash
-kzf doctor src/main.zig
+kzf doctor src/                       # scan a file or directory (default: Zig 0.16 rules)
+kzf doctor src/ --zig-version 0.17    # target a different release (see below)
+kzf doctor src/ && zig build          # gate a build — doctor exits non-zero on findings
 ```
 
-Checks performed:
-* Replaces deprecated `GeneralPurposeAllocator` with `init.gpa` or `DebugAllocator`.
-* Catches removed `std.time.nanoTimestamp` / `milliTimestamp` and suggests cycle timers (`rdtsc`, Windows QPC).
-* Flags outdated `b.addExecutable` missing `b.createModule`.
-* Detects removed `std.io.getStdOut()` / `getStdIn()` in favor of modern `std.Io`.
-* Replaces deprecated `std.mem.tokenize` with `tokenizeAny` / `tokenizeScalar`.
+What the `0.16` rule set catches (rules live in [`src/rules.json`](src/rules.json)):
+* `std.heap.GeneralPurposeAllocator` → `init.gpa` / `std.heap.DebugAllocator`
+* removed `std.time.nanoTimestamp` / `milliTimestamp` → cycle timers (`rdtsc`, Windows QPC)
+* `b.addExecutable` / `b.addTest` missing `.root_module = b.createModule(...)`
+* removed `std.io.getStdOut()` / `getStdIn()` → modern `std.Io`
+* `std.Target.CrossTarget` → `std.Target.Query`
+* deprecated `std.mem.tokenize` → `tokenizeAny` / `tokenizeScalar`
+
+Findings print with a fix and the command exits `1`, so it drops straight into CI or a pre-commit hook. The rule set is **data, selectable per Zig version** — see [Compiler Version Flexibility](#-compiler-version-flexibility-migrating-to-zig-0170).
 
 ---
 
@@ -144,7 +150,7 @@ Add to `%APPDATA%\Claude\claude_desktop_config.json`:
 * `kzf_inspect_hardware`: Probes CPU silicon extensions and returns compiler optimization flags.
 * `kzf_list_templates`: Returns production starter templates and descriptions.
 * `kzf_get_targets`: Returns optimized compilation targets and flags.
-* `kzf_doctor`: Scans files/projects for deprecated syntax and suggests fixes directly to AI agents.
+* `kzf_doctor`: Scans files/projects for deprecated syntax and suggests fixes directly to AI agents. Optional `zig_version` selects the rule set.
 * `kzf_scaffold_project`: Autonomously scaffolds new production Zig 0.16 projects.
 
 ---

@@ -2,7 +2,7 @@
 
 ## Overview
 This environment is equipped with **Kaos Zig Forge (KZF) v1.1.0** and **Zig 0.16.0**.
-Zig evolves rapidly across releases. To guarantee 100% compilation and avoid hallucinating deprecated APIs (e.g. `std.heap.GeneralPurposeAllocator`, `std.io.getStdOut()`, or outdated `build.zig` targets), ALWAYS leverage `kzf` for project scaffolding, syntax linting, benchmarking, and cross-platform compilation.
+Zig evolves rapidly across releases. To avoid reaching for deprecated APIs (e.g. `std.heap.GeneralPurposeAllocator`, `std.io.getStdOut()`, or outdated `build.zig` targets) and to catch the common ones *before* the compiler does, use `kzf` for project scaffolding, syntax linting, benchmarking, and cross-platform compilation. `kzf doctor` is a fast pre-flight — run it, then still run `zig build` (it complements the compiler, it does not replace it).
 
 ---
 
@@ -18,17 +18,21 @@ kzf bench      # Automatically compiles with -Doptimize=ReleaseFast -Dcpu=<detec
 ```
 
 ### 2. Syntax Guard & Linter (`kzf doctor`)
-Scan files or projects for deprecated pre-0.16.0 patterns and syntax hallucinations:
+Scan files or projects for deprecated patterns before compiling. It exits non-zero on findings, so chain it before a build:
 ```bash
-kzf doctor              # Scan current project
-kzf doctor path/to/file # Scan specific file or directory
+kzf doctor                    # Scan current project (default: Zig 0.16 rules)
+kzf doctor path/to/file       # Scan a specific file or directory
+kzf doctor src --zig-version 0.17   # Target a different Zig release
+kzf doctor src && zig build   # Gate the build on a clean scan
 ```
-Catches:
+Catches (the `0.16` rule set — rules live in `src/rules.json`, selectable by `--zig-version`):
 - Deprecated `std.heap.GeneralPurposeAllocator`
 - Removed `std.time.nanoTimestamp` / `milliTimestamp`
-- Misplaced `.root_source_file` in `b.addExecutable` without `b.createModule`
+- Misplaced `.root_source_file` in `b.addExecutable` / `b.addTest` without `b.createModule`
 - Removed `std.io.getStdOut()` / `getStdIn()`
 - Deprecated `std.Target.CrossTarget` and `std.mem.tokenize`
+
+Note: it is a pattern-based pre-flight, not full semantic analysis — a clean scan means none of these patterns were found, not that the project compiles. Always run `zig build` too.
 
 ### 3. Scaffolding New Projects (`kzf new`)
 Never write raw Zig boilerplate from scratch. Use `kzf new`:
@@ -82,7 +86,7 @@ Add to `%APPDATA%\Claude\claude_desktop_config.json`:
 - `kzf_inspect_hardware`: Returns CPU architecture (Intel Core/Xeon & AMD Zen), AVX-512 extensions, and `-Dcpu=` recommendations.
 - `kzf_list_templates`: Returns production template descriptions and feature breakdowns.
 - `kzf_get_targets`: Returns optimized compilation commands for native, Intel (x86_64_v3/v4), and AMD (znver4/5) targets.
-- `kzf_doctor`: Scans files/projects for deprecated pre-0.16 syntax and returns fixes directly to Claude.
+- `kzf_doctor`: Scans files/projects for deprecated syntax (rule set selectable via `zig_version`) and returns fixes directly to Claude.
 - `kzf_scaffold_project`: Scaffolds a new project in the active directory.
 
 ---
