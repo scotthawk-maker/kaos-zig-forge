@@ -68,7 +68,7 @@ pub fn runMcp(io: Io, alloc: std.mem.Allocator) !void {
             try writeResponse(writer, id_val, "{}");
         } else if (std.mem.eql(u8, method, "tools/list")) {
             try writeResponse(writer, id_val,
-                \\{"tools":[{"name":"kzf_inspect_hardware","description":"Inspect host CPU silicon capabilities via inline assembly CPUID (Intel Core / Xeon, AMD Zen 3/4/5, AVX-512, AVX2, FMA, SHA, AES, and recommended compilation flags)","inputSchema":{"type":"object","properties":{}}},{"name":"kzf_list_templates","description":"List all available production starter templates (cli, simd, shm-ring, hft, numa-worker, webmcp-server, wal-storage)","inputSchema":{"type":"object","properties":{}}},{"name":"kzf_get_targets","description":"Get optimized build and performance compiler target flags for host CPU and AVX-512 execution","inputSchema":{"type":"object","properties":{}}},{"name":"kzf_doctor","description":"Scan a Zig project or file for deprecated pre-0.16.0 patterns and syntax hallucinations (e.g. GeneralPurposeAllocator, nanoTimestamp, root_source_file, getStdOut) with precise modern Zig 0.16 replacements","inputSchema":{"type":"object","properties":{"path":{"type":"string","description":"Optional file path or directory to scan. Defaults to current working directory."}}}},{"name":"kzf_scaffold_project","description":"Scaffold a new production Zig 0.16 project in the current working directory","inputSchema":{"type":"object","properties":{"template":{"type":"string","description":"The template to use: 'cli', 'simd', 'shm-ring', 'hft', 'numa-worker', 'webmcp-server', or 'wal-storage'","enum":["cli","simd","shm-ring","hft","numa-worker","webmcp-server","wal-storage"]},"name":{"type":"string","description":"The project folder and package name"}},"required":["template","name"]}}]}
+                \\{"tools":[{"name":"kzf_inspect_hardware","description":"Inspect host CPU silicon capabilities via inline assembly CPUID (Intel Core / Xeon, AMD Zen 3/4/5, AVX-512, AVX2, FMA, SHA, AES, and recommended compilation flags)","inputSchema":{"type":"object","properties":{}}},{"name":"kzf_list_templates","description":"List all available production starter templates (cli, simd, shm-ring, hft, numa-worker, webmcp-server, wal-storage)","inputSchema":{"type":"object","properties":{}}},{"name":"kzf_get_targets","description":"Get optimized build and performance compiler target flags for host CPU and AVX-512 execution","inputSchema":{"type":"object","properties":{}}},{"name":"kzf_doctor","description":"Scan a Zig project or file for deprecated patterns and syntax hallucinations with precise modern replacements, for the target Zig version","inputSchema":{"type":"object","properties":{"path":{"type":"string","description":"Optional file path or directory to scan. Defaults to current working directory."},"zig_version":{"type":"string","description":"Target Zig version selecting the deprecation rule set, e.g. 0.16 or 0.17 (default 0.16)."}}}},{"name":"kzf_scaffold_project","description":"Scaffold a new production Zig 0.16 project in the current working directory","inputSchema":{"type":"object","properties":{"template":{"type":"string","description":"The template to use: 'cli', 'simd', 'shm-ring', 'hft', 'numa-worker', 'webmcp-server', or 'wal-storage'","enum":["cli","simd","shm-ring","hft","numa-worker","webmcp-server","wal-storage"]},"name":{"type":"string","description":"The project folder and package name"}},"required":["template","name"]}}]}
             );
         } else if (std.mem.eql(u8, method, "tools/call")) {
             const params_opt = root_obj.get("params");
@@ -144,20 +144,30 @@ pub fn runMcp(io: Io, alloc: std.mem.Allocator) !void {
                 try writeToolContent(writer, id_val, text);
             } else if (std.mem.eql(u8, tool_name, "kzf_doctor")) {
                 var target_path: ?[]const u8 = null;
+                var zig_version: ?[]const u8 = null;
                 if (params.get("arguments")) |args_val| {
                     if (args_val == .object) {
                         if (args_val.object.get("path")) |p| {
                             if (p == .string and p.string.len > 0) target_path = p.string;
                         }
+                        if (args_val.object.get("zig_version")) |v| {
+                            if (v == .string and v.string.len > 0) zig_version = v.string;
+                        }
                     }
                 }
 
+                const target = zig_version orelse doctor.DEFAULT_ZIG_VERSION;
+                var loaded = try doctor.loadRules(alloc, target);
+                defer loaded.deinit();
+
                 var issues = std.ArrayList(doctor.Issue).empty;
                 const path_to_scan = target_path orelse ".";
-                try doctor.scanPath(io, alloc, path_to_scan, &issues);
+                try doctor.scanPath(io, alloc, path_to_scan, loaded.rules, &issues);
 
                 if (issues.items.len == 0) {
-                    try writeToolContent(writer, id_val, "✅ 0 Hallucinations Detected! Code strictly adheres to Zig 0.16.0 standards.");
+                    var ok_buf: [128]u8 = undefined;
+                    const ok_msg = std.fmt.bufPrint(&ok_buf, "✅ 0 Hallucinations Detected! Code strictly adheres to Zig {s} standards.", .{target}) catch "✅ 0 Hallucinations Detected!";
+                    try writeToolContent(writer, id_val, ok_msg);
                 } else {
                     var tool_out_buf: [8192]u8 = undefined;
                     var pos: usize = 0;

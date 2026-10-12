@@ -20,7 +20,7 @@ pub fn printHelp() void {
         \\  kzf list                   List available starter templates
         \\  kzf hardware               Inspect host CPU silicon (CPUID/AVX-512)
         \\  kzf targets                Display high-performance compile targets
-        \\  kzf doctor [path]          Zig 0.16 Syntax Guard & Anti-Hallucination Linter
+        \\  kzf doctor [path] [--zig-version <v>]  Syntax Guard & Anti-Hallucination Linter (default 0.16)
         \\  kzf bench                  Run silicon-aware benchmark on host CPU
         \\  kzf mcp                    Start Stdio Model Context Protocol (MCP) server
         \\  kzf version                Display KZF version information

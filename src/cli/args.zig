@@ -11,6 +11,7 @@ pub const Command = union(enum) {
     targets: void,
     doctor: struct {
         path: ?[]const u8 = null,
+        zig_version: ?[]const u8 = null,
     },
     bench: void,
     mcp: void,
@@ -40,8 +41,24 @@ pub fn parse(args: []const []const u8) Command {
     } else if (std.mem.eql(u8, cmd, "targets")) {
         return .targets;
     } else if (std.mem.eql(u8, cmd, "doctor") or std.mem.eql(u8, cmd, "lint")) {
-        const target_path = if (args.len >= 3) args[2] else null;
-        return .{ .doctor = .{ .path = target_path } };
+        // Accept `doctor [path] [--zig-version <v>]` in any order.
+        var target_path: ?[]const u8 = null;
+        var zig_version: ?[]const u8 = null;
+        var i: usize = 2;
+        while (i < args.len) : (i += 1) {
+            const a = args[i];
+            if (std.mem.eql(u8, a, "--zig-version") or std.mem.eql(u8, a, "-z")) {
+                if (i + 1 < args.len) {
+                    zig_version = args[i + 1];
+                    i += 1;
+                }
+            } else if (std.mem.startsWith(u8, a, "--zig-version=")) {
+                zig_version = a["--zig-version=".len..];
+            } else if (!std.mem.startsWith(u8, a, "-")) {
+                target_path = a;
+            }
+        }
+        return .{ .doctor = .{ .path = target_path, .zig_version = zig_version } };
     } else if (std.mem.eql(u8, cmd, "bench") or std.mem.eql(u8, cmd, "benchmark")) {
         return .bench;
     } else if (std.mem.eql(u8, cmd, "mcp")) {

@@ -154,7 +154,21 @@ Add to `%APPDATA%\Claude\claude_desktop_config.json`:
 > [!IMPORTANT]
 > **Built for Zig 0.16.0**: This release of Kaos Zig Forge (KZF) is rigorously verified, benchmarked, and battle-tested specifically on **Zig 0.16.0**. 
 
-If you or your team wish to compile KZF or scaffolded projects using a newer compiler (such as **Zig 0.17.0** or bleeding-edge master), here is the step-by-step checklist to adapt the toolchain:
+### Selecting a target version (`--zig-version`)
+
+The `doctor` rule set is **data, not hardcoded** — it lives in [`src/rules.json`](src/rules.json), and each rule is tagged with the Zig version it applies `since`. Pick the target version at runtime:
+
+```bash
+kzf doctor src/              # default: Zig 0.16 rules
+kzf doctor src/ --zig-version 0.17   # 0.16 rules still apply + any tagged "0.17"
+kzf doctor src/ --zig-version 0.15   # only rules introduced by 0.15 or earlier
+```
+
+A rule fires when the target version is **>= its `since`**, so an API removed in 0.16 keeps flagging for 0.17 and beyond — you never lose coverage by moving forward. The MCP `kzf_doctor` tool takes the same selector as an optional `zig_version` argument.
+
+**Adding support for a new Zig release is a data change, not a code change:** append rules to `src/rules.json` with the new version as their `since` (existing rules keep applying) and rebuild. No linter logic to touch — ideal for community PRs.
+
+If you additionally want to compile KZF or scaffolded projects on a newer compiler (such as bleeding-edge master), here is the checklist to adapt the build:
 
 ### 1. Update Package Manifest (`build.zig.zon`)
 Adjust the minimum compiler requirement to allow newer toolchains:

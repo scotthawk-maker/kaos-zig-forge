@@ -1,6 +1,14 @@
-//! Kaos Zig Forge (KZF) — Zig 0.16 Syntax Guard & Anti-Hallucination Doctor
+//! Kaos Zig Forge (KZF) — Zig Syntax Guard & Anti-Hallucination Doctor
+//! Deprecation rules are data (src/rules.json), each tagged with the Zig version it applies
+//! `since`. --zig-version (default DEFAULT_ZIG_VERSION) selects which rules fire: a rule fires
+//! when the target version >= its `since`, so an API removed in 0.16 still flags for 0.17+.
 const std = @import("std");
 const Io = std.Io;
+
+/// Default target when --zig-version is not supplied.
+pub const DEFAULT_ZIG_VERSION = "0.16";
+
+const rules_json = @embedFile("../rules.json");
 
 pub const Issue = struct {
     file: []const u8,
@@ -14,47 +22,55 @@ pub const CheckRule = struct {
     pattern: []const u8,
     message: []const u8,
     suggestion: []const u8,
+    since: []const u8 = "0.16",
 };
 
-pub const RULES = [_]CheckRule{
-    .{
-        .pattern = "GeneralPurposeAllocator",
-        .message = "std.heap.GeneralPurposeAllocator is deprecated/removed in Zig 0.16.0.",
-        .suggestion = "Use 'init.gpa' from main(init: std.process.Init), 'std.heap.DebugAllocator', or 'std.heap.smp_allocator'.",
-    },
-    .{
-        .pattern = "nanoTimestamp",
-        .message = "std.time.nanoTimestamp is removed from std.time in Zig 0.16.0.",
-        .suggestion = "Use x86_64 RDTSC inline asm, Windows QPC (RtlQueryPerformanceCounter), or std.time.epoch.",
-    },
-    .{
-        .pattern = "milliTimestamp",
-        .message = "std.time.milliTimestamp is removed from std.time in Zig 0.16.0.",
-        .suggestion = "Use x86_64 RDTSC inline asm or Windows QPC.",
-    },
-    .{
-        .pattern = "getStdOut()",
-        .message = "std.io.getStdOut() is removed/changed in Zig 0.16.0.",
-        .suggestion = "Use 'std.debug.print' for console, or 'std.Io.File.Writer.init(.stdout(), io, &buf)' with modern std.Io.",
-    },
-    .{
-        .pattern = "getStdIn()",
-        .message = "std.io.getStdIn() is removed/changed in Zig 0.16.0.",
-        .suggestion = "Use 'std.Io.File.Reader.init(.stdin(), io, &buf)' with modern std.Io.",
-    },
-    .{
-        .pattern = "CrossTarget",
-        .message = "std.Target.CrossTarget is removed in Zig 0.16.0.",
-        .suggestion = "Use 'std.Target.Query' instead.",
-    },
-    .{
-        .pattern = "std.mem.tokenize(",
-        .message = "std.mem.tokenize is deprecated in favor of explicit tokenizers.",
-        .suggestion = "Use 'std.mem.tokenizeAny', 'tokenizeScalar', or 'tokenizeSequence'.",
-    },
+const RulesFile = struct {
+    rules: []CheckRule,
 };
 
-pub fn checkFile(io: Io, alloc: std.mem.Allocator, path: []const u8, issues: *std.ArrayList(Issue)) !void {
+/// Rules loaded from rules.json and filtered to a target Zig version. Caller must deinit.
+pub const LoadedRules = struct {
+    parsed: std.json.Parsed(RulesFile),
+    rules: []CheckRule,
+    alloc: std.mem.Allocator,
+
+    pub fn deinit(self: *LoadedRules) void {
+        self.alloc.free(self.rules);
+        self.parsed.deinit();
+    }
+};
+
+fn parseVer(v: []const u8) struct { major: u32, minor: u32 } {
+    var it = std.mem.splitScalar(u8, v, '.');
+    const maj = std.fmt.parseInt(u32, it.next() orelse "0", 10) catch 0;
+    const min = std.fmt.parseInt(u32, it.next() orelse "0", 10) catch 0;
+    return .{ .major = maj, .minor = min };
+}
+
+/// True when version `a` <= version `b` (compared by major.minor).
+fn versionAtMost(a: []const u8, b: []const u8) bool {
+    const pa = parseVer(a);
+    const pb = parseVer(b);
+    if (pa.major != pb.major) return pa.major < pb.major;
+    return pa.minor <= pb.minor;
+}
+
+/// Parse the embedded rules.json and return the rules that apply to `target` (since <= target).
+pub fn loadRules(alloc: std.mem.Allocator, target: []const u8) !LoadedRules {
+    const parsed = try std.json.parseFromSlice(RulesFile, alloc, rules_json, .{ .ignore_unknown_fields = true });
+    errdefer parsed.deinit();
+
+    var list: std.ArrayList(CheckRule) = .empty;
+    errdefer list.deinit(alloc);
+    for (parsed.value.rules) |rule| {
+        if (versionAtMost(rule.since, target)) try list.append(alloc, rule);
+    }
+
+    return .{ .parsed = parsed, .rules = try list.toOwnedSlice(alloc), .alloc = alloc };
+}
+
+pub fn checkFile(io: Io, alloc: std.mem.Allocator, path: []const u8, rules: []const CheckRule, issues: *std.ArrayList(Issue)) !void {
     const file = Io.Dir.openFileAbsolute(io, path, .{}) catch return;
     defer file.close(io);
 
@@ -93,7 +109,7 @@ pub fn checkFile(io: Io, alloc: std.mem.Allocator, path: []const u8, issues: *st
             inside_add_target = false;
         }
 
-        for (RULES) |rule| {
+        for (rules) |rule| {
             if (std.mem.indexOf(u8, line, rule.pattern) != null) {
                 try issues.append(alloc, .{
                     .file = try alloc.dupe(u8, path),
@@ -107,9 +123,9 @@ pub fn checkFile(io: Io, alloc: std.mem.Allocator, path: []const u8, issues: *st
     }
 }
 
-pub fn scanPath(io: Io, alloc: std.mem.Allocator, scan_path: []const u8, issues: *std.ArrayList(Issue)) !void {
+pub fn scanPath(io: Io, alloc: std.mem.Allocator, scan_path: []const u8, rules: []const CheckRule, issues: *std.ArrayList(Issue)) !void {
     if (std.mem.endsWith(u8, scan_path, ".zig")) {
-        try checkFile(io, alloc, scan_path, issues);
+        try checkFile(io, alloc, scan_path, rules, issues);
     } else {
         const common_files = [_][]const u8{
             "build.zig",
@@ -120,19 +136,24 @@ pub fn scanPath(io: Io, alloc: std.mem.Allocator, scan_path: []const u8, issues:
         for (common_files) |cf| {
             var full_buf: [1024]u8 = undefined;
             const full_path = std.fmt.bufPrint(&full_buf, "{s}/{s}", .{ scan_path, cf }) catch continue;
-            checkFile(io, alloc, full_path, issues) catch {};
+            checkFile(io, alloc, full_path, rules, issues) catch {};
         }
     }
 }
 
 /// Returns the number of issues found so the caller can set a non-zero exit code (CI/agent gate).
-pub fn runDoctor(io: Io, alloc: std.mem.Allocator, target_path: ?[]const u8) !usize {
+/// zig_version selects the deprecation rule set (default DEFAULT_ZIG_VERSION).
+pub fn runDoctor(io: Io, alloc: std.mem.Allocator, target_path: ?[]const u8, zig_version: ?[]const u8) !usize {
+    const target = zig_version orelse DEFAULT_ZIG_VERSION;
     std.debug.print(
         \\======================================================================
-        \\🩺 Kaos Zig Forge (KZF) — Zig 0.16.0 Syntax Guard & Linter
+        \\🩺 Kaos Zig Forge (KZF) — Zig {s} Syntax Guard & Linter
         \\======================================================================
         \\
-    , .{});
+    , .{target});
+
+    var loaded = try loadRules(alloc, target);
+    defer loaded.deinit();
 
     var issues: std.ArrayList(Issue) = .empty;
     defer issues.deinit(alloc);
@@ -141,19 +162,19 @@ pub fn runDoctor(io: Io, alloc: std.mem.Allocator, target_path: ?[]const u8) !us
     defer alloc.free(cwd_path);
 
     const scan_path = target_path orelse cwd_path;
-    try scanPath(io, alloc, scan_path, &issues);
+    try scanPath(io, alloc, scan_path, loaded.rules, &issues);
 
     if (issues.items.len == 0) {
         std.debug.print(
             \\✅ 0 Hallucinations Detected!
             \\----------------------------------------------------------------------
-            \\All inspected code strictly adheres to Zig 0.16.0 standards:
+            \\All inspected code strictly adheres to Zig {s} standards ({d} rule(s) checked):
             \\• Modern std.Io architecture
             \\• b.createModule root module wiring
             \\• Native allocator & cycle timer APIs
             \\----------------------------------------------------------------------
             \\
-        , .{});
+        , .{ target, loaded.rules.len });
     } else {
         std.debug.print("⚠️ Found {d} deprecated / hallucinated Zig pattern(s):\n", .{issues.items.len});
         std.debug.print("----------------------------------------------------------------------\n", .{});
@@ -161,7 +182,7 @@ pub fn runDoctor(io: Io, alloc: std.mem.Allocator, target_path: ?[]const u8) !us
             std.debug.print("❌ [{s}:{d}]\n", .{ iss.file, iss.line });
             std.debug.print("   Pattern:    '{s}'\n", .{iss.pattern});
             std.debug.print("   Issue:      {s}\n", .{iss.message});
-            std.debug.print("   Fix (0.16): {s}\n\n", .{iss.suggestion});
+            std.debug.print("   Fix:        {s}\n\n", .{iss.suggestion});
         }
         std.debug.print("----------------------------------------------------------------------\n", .{});
     }

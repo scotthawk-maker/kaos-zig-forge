@@ -1,0 +1,47 @@
+{
+  "_comment": "Kaos Zig Forge deprecation rules. Each rule fires when the target Zig version (--zig-version, default 0.16) is >= its `since`. To support a new Zig release, add rules with the new `since` — existing ones keep applying. No recompile logic needed, just data.",
+  "rules": [
+    {
+      "pattern": "GeneralPurposeAllocator",
+      "since": "0.16",
+      "message": "std.heap.GeneralPurposeAllocator is deprecated/removed in Zig 0.16.0.",
+      "suggestion": "Use 'init.gpa' from main(init: std.process.Init), 'std.heap.DebugAllocator', or 'std.heap.smp_allocator'."
+    },
+    {
+      "pattern": "nanoTimestamp",
+      "since": "0.16",
+      "message": "std.time.nanoTimestamp is removed from std.time in Zig 0.16.0.",
+      "suggestion": "Use x86_64 RDTSC inline asm, Windows QPC (RtlQueryPerformanceCounter), or std.time.epoch."
+    },
+    {
+      "pattern": "milliTimestamp",
+      "since": "0.16",
+      "message": "std.time.milliTimestamp is removed from std.time in Zig 0.16.0.",
+      "suggestion": "Use x86_64 RDTSC inline asm or Windows QPC."
+    },
+    {
+      "pattern": "getStdOut()",
+      "since": "0.16",
+      "message": "std.io.getStdOut() is removed/changed in Zig 0.16.0.",
+      "suggestion": "Use 'std.debug.print' for console, or 'std.Io.File.Writer.init(.stdout(), io, &buf)' with modern std.Io."
+    },
+    {
+      "pattern": "getStdIn()",
+      "since": "0.16",
+      "message": "std.io.getStdIn() is removed/changed in Zig 0.16.0.",
+      "suggestion": "Use 'std.Io.File.Reader.init(.stdin(), io, &buf)' with modern std.Io."
+    },
+    {
+      "pattern": "CrossTarget",
+      "since": "0.16",
+      "message": "std.Target.CrossTarget is removed in Zig 0.16.0.",
+      "suggestion": "Use 'std.Target.Query' instead."
+    },
+    {
+      "pattern": "std.mem.tokenize(",
+      "since": "0.16",
+      "message": "std.mem.tokenize is deprecated in favor of explicit tokenizers.",
+      "suggestion": "Use 'std.mem.tokenizeAny', 'tokenizeScalar', or 'tokenizeSequence'."
+    }
+  ]
+}
