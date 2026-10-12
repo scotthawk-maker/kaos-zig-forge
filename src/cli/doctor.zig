@@ -23,6 +23,9 @@ pub const CheckRule = struct {
     message: []const u8,
     suggestion: []const u8,
     since: []const u8 = "0.16",
+    // Optional upper bound: the rule stops firing once target >= `until`. Covers an API that was
+    // removed (flag it from `since`) and later restored (stop flagging from `until`). (design: QuanTradin, r/mcp)
+    until: ?[]const u8 = null,
 };
 
 const RulesFile = struct {
@@ -59,6 +62,15 @@ fn versionAtMost(a: []const u8, b: []const u8) bool {
     const pb = parseVer(b);
     if (pa.major != pb.major) return pa.major < pb.major;
     return pa.minor <= pb.minor;
+}
+
+/// A rule applies to `target` when it's in the half-open range [since, until): since <= target,
+/// and (no `until`, or target < until). A rule whose `until` is at/behind the agent's version is
+/// dropped — so an API removed in X and restored in Y only flags for X..Y.
+fn ruleApplies(rule: CheckRule, target: []const u8) bool {
+    if (!versionAtMost(rule.since, target)) return false;
+    if (rule.until) |until| return !versionAtMost(until, target);
+    return true;
 }
 
 /// Read a whole text file (resolving a relative path against cwd). Caller frees the result.
@@ -109,10 +121,10 @@ pub fn loadRules(io: Io, alloc: std.mem.Allocator, target: []const u8, external_
     var list: std.ArrayList(CheckRule) = .empty;
     errdefer list.deinit(alloc);
     for (embedded.value.rules) |rule| {
-        if (versionAtMost(rule.since, target)) try list.append(alloc, rule);
+        if (ruleApplies(rule, target)) try list.append(alloc, rule);
     }
     if (external) |e| for (e.value.rules) |rule| {
-        if (versionAtMost(rule.since, target)) try list.append(alloc, rule);
+        if (ruleApplies(rule, target)) try list.append(alloc, rule);
     };
 
     return .{
@@ -262,6 +274,17 @@ test "versionAtMost compares by major.minor" {
     try std.testing.expect(versionAtMost("0.16.3", "0.17.0")); // patch suffix ignored
     try std.testing.expect(!versionAtMost("0.16", "0.15")); // not yet removed on 0.15
     try std.testing.expect(!versionAtMost("1.0", "0.17")); // major dominates
+}
+
+test "ruleApplies honors [since, until) range" {
+    const r = CheckRule{ .pattern = "x", .message = "m", .suggestion = "s", .since = "0.16", .until = "0.19" };
+    try std.testing.expect(!ruleApplies(r, "0.15")); // before since
+    try std.testing.expect(ruleApplies(r, "0.16")); // at since
+    try std.testing.expect(ruleApplies(r, "0.18")); // inside range
+    try std.testing.expect(!ruleApplies(r, "0.19")); // at until -> restored, drop
+    try std.testing.expect(!ruleApplies(r, "0.20")); // past until
+    const open = CheckRule{ .pattern = "x", .message = "m", .suggestion = "s", .since = "0.16" };
+    try std.testing.expect(ruleApplies(open, "0.99")); // no until -> never expires
 }
 
 test "embedded rules.json parses and filters by version" {

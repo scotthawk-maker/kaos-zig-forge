@@ -60,7 +60,7 @@ pub fn runMcp(io: Io, alloc: std.mem.Allocator) !void {
 
         if (std.mem.eql(u8, method, "initialize")) {
             try writeResponse(writer, id_val,
-                \\{"protocolVersion":"2024-11-05","capabilities":{"tools":{}},"serverInfo":{"name":"kzf","version":"1.2.0"}}
+                \\{"protocolVersion":"2024-11-05","capabilities":{"tools":{}},"serverInfo":{"name":"kzf","version":"1.3.0"}}
             );
         } else if (std.mem.eql(u8, method, "notifications/initialized")) {
             continue;

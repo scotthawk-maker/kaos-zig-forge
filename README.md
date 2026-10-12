@@ -174,7 +174,7 @@ kzf doctor src/ --zig-version 0.17   # 0.16 rules still apply + anything tagged 
 kzf doctor src/ --zig-version 0.15   # only rules from 0.15 or earlier
 ```
 
-A rule fires when your target is **>= its `since`**, so something removed in 0.16 keeps getting flagged on 0.17 and up — moving forward never drops coverage. The MCP `kzf_doctor` tool takes the same thing as an optional `zig_version` argument.
+A rule fires when your target is in **`[since, until)`** — `>= since`, and `< until` if the rule sets one. Leave `until` off for an API that stays gone (it keeps flagging on 0.17 and up). Set it for the rare API that gets removed in `since` and **restored** later in `until` — then the fix stops being suggested once you're on a release where the old API is valid again. Moving forward never drops coverage you still need. The MCP `kzf_doctor` tool takes the same target as an optional `zig_version` argument.
 
 **Teaching it about a new Zig release is just editing data:** add rules to `src/rules.json` with the new version as their `since` (the old ones keep applying) and rebuild. No linter code to touch — easy PR if you hit a new deprecation before I do.
 

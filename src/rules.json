@@ -1,5 +1,5 @@
 {
-  "_comment": "Kaos Zig Forge deprecation rules. Each rule fires when the target Zig version (--zig-version, default 0.16) is >= its `since`. To support a new Zig release, add rules with the new `since` — existing ones keep applying. No recompile logic needed, just data.",
+  "_comment": "Kaos Zig Forge deprecation rules. A rule fires when the target Zig version (--zig-version, default 0.16) is in [since, until): >= `since`, and < `until` if set. Omit `until` for an API that stays removed; set it for one removed in `since` and restored in `until`. Add rules with a new `since` to support a new release — existing ones keep applying. Just data, no recompile logic.",
   "rules": [
     {
       "pattern": "GeneralPurposeAllocator",
