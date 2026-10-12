@@ -15,7 +15,7 @@ pub fn main(init: std.process.Init) !void {
         .hardware => kzf.commands.inspectHardware(),
         .targets => kzf.commands.printTargets(),
         .doctor => |d| {
-            const n = try kzf.doctor.runDoctor(init.io, arena, d.path, d.zig_version);
+            const n = try kzf.doctor.runDoctor(init.io, arena, d.path, d.zig_version, d.rules_path);
             if (n > 0) std.process.exit(1); // non-zero so `kzf doctor && zig build` gates correctly
         },
         .bench => try kzf.bench.runBench(init.io, arena),

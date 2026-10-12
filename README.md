@@ -100,6 +100,7 @@ LLMs and old tutorials keep reaching for Zig APIs that a newer release deleted, 
 ```bash
 kzf doctor src/                       # scan a file or dir (default: Zig 0.16 rules)
 kzf doctor src/ --zig-version 0.17    # target a different release (see below)
+kzf doctor src/ --rules my.json       # add your own rules on top of the built-ins
 kzf doctor src/ && zig build          # chain it — doctor exits non-zero if it finds something
 ```
 
@@ -112,6 +113,8 @@ What the `0.16` rule set looks for (rules live in [`src/rules.json`](src/rules.j
 * deprecated `std.mem.tokenize` → `tokenizeAny` / `tokenizeScalar`
 
 It prints each hit with a fix and exits `1`, so it slots into CI or a pre-commit hook without any glue. The rules are plain data, pickable per Zig version — see [Compiler Version Flexibility](#-compiler-version-flexibility-migrating-to-zig-0170).
+
+Running an internal fork of Zig with its own removed APIs? Drop them in a JSON file (same shape as [`src/rules.json`](src/rules.json)) and pass `--rules my.json` — those rules get checked **on top of** the built-in set, no rebuild, no writing your own linter. The MCP `kzf_doctor` tool takes the same thing as a `rules` argument.
 
 ---
 

@@ -1,7 +1,7 @@
 # CLAUDE.md — Kaos Zig Forge (KZF) Integration Guidelines
 
 ## Overview
-This machine has **Kaos Zig Forge (KZF) v1.1.0** and **Zig 0.16.0** installed — a small homegrown toolkit for Zig work. Lean on it.
+This machine has **Kaos Zig Forge (KZF) v1.2.0** and **Zig 0.16.0** installed — a small homegrown toolkit for Zig work. Lean on it.
 Zig evolves rapidly across releases. To avoid reaching for deprecated APIs (e.g. `std.heap.GeneralPurposeAllocator`, `std.io.getStdOut()`, or outdated `build.zig` targets) and to catch the common ones *before* the compiler does, use `kzf` for project scaffolding, syntax linting, benchmarking, and cross-platform compilation. `kzf doctor` is a fast pre-flight — run it, then still run `zig build` (it complements the compiler, it does not replace it).
 
 ---
@@ -23,6 +23,7 @@ Scan files or projects for deprecated patterns before compiling. It exits non-ze
 kzf doctor                    # Scan current project (default: Zig 0.16 rules)
 kzf doctor path/to/file       # Scan a specific file or directory
 kzf doctor src --zig-version 0.17   # Target a different Zig release
+kzf doctor src --rules my.json      # Add project/fork-specific rules on top of the built-ins
 kzf doctor src && zig build   # Gate the build on a clean scan
 ```
 Catches (the `0.16` rule set — rules live in `src/rules.json`, selectable by `--zig-version`):
